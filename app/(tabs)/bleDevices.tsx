@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import {
   Switch,
 } from 'react-native';
 import { BleManager, Device } from 'react-native-ble-plx';
+import { AnchorsContext } from '@/components/AnchorsContext';
+
+const { setGlobalAnchors } = useContext(AnchorsContext);
 
 const BleDevicesScreen = () => {
   const [bleManager] = useState(new BleManager());
@@ -130,11 +133,31 @@ const BleDevicesScreen = () => {
   };
 
   const toggleAnchor = (deviceId: string, value: boolean) => {
+    const device = devices.find((d) => d.id === deviceId); // Find the device object
+    if (!device) return;
+  
     setAnchors((prevAnchors) => ({
       ...prevAnchors,
       [deviceId]: value,
     }));
-  };//test
+  
+    const distance = deviceDistances[deviceId]; // Retrieve calculated distance
+  
+    setGlobalAnchors((prevGlobalAnchors) => {
+      const updatedAnchors = { ...prevGlobalAnchors };
+      if (value) {
+        updatedAnchors[deviceId] = { 
+          id: deviceId, 
+          name: device.name || 'Unknown Device', 
+          coordinates: null, 
+          distance // Include distance here
+        };
+      } else {
+        delete updatedAnchors[deviceId];
+      }
+      return updatedAnchors;
+    });
+  };
 
   const renderDevice = ({ item }: { item: Device }) => {
     const distance = deviceDistances[item.id];
