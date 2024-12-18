@@ -134,7 +134,7 @@ const BleDevicesScreen = () => {
       ...prevAnchors,
       [deviceId]: value,
     }));
-  };
+  };//test
 
   const renderDevice = ({ item }: { item: Device }) => {
     const distance = deviceDistances[item.id];
