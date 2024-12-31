@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { AnchorsContext } from '../../components/AnchorsContext';
+import { AnchorsContext } from '@/components/AnchorsContext';
 
 export default function AnchorsScreen() {
   const { anchors, setGlobalAnchors } = useContext(AnchorsContext); // Access shared anchors
