@@ -46,7 +46,7 @@ export default function TabLayout() {
           ),
         }}
       />
-       <Tabs.Screen
+      <Tabs.Screen
         name="map"
         options={{
           title: 'Map',
@@ -56,22 +56,22 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-       name="deviceInfo"
-       options={{
-        title: 'Device Info',
-        tabBarIcon: ({ color, focused }) => (
-        <TabBarIcon name={focused ? 'information-circle' : 'information-circle-outline'} color={color} />
-    ),
-  }}
-/>
+        name="deviceInfo"
+        options={{
+          title: 'Device Info',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'information-circle' : 'information-circle-outline'} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
-        name="BLEDevicesScreen"
+        name="bleDevices"
         options={{
           title: 'BLE Devices',
           tabBarIcon: ({ color, focused }) => (
-           <TabBarIcon name={focused ? 'bluetooth' : 'bluetooth-outline'} color={color} />
+            <TabBarIcon name={focused ? 'bluetooth' : 'bluetooth-outline'} color={color} />
           ),
-      }}
+        }}
       />
     </Tabs>
   );
