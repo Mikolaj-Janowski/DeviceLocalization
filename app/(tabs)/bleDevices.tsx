@@ -14,7 +14,6 @@ import {
 import { BleManager, Device } from 'react-native-ble-plx';
 import { AnchorsContext } from '@/components/AnchorsContext';
 
-const { setGlobalAnchors } = useContext(AnchorsContext);
 
 const BleDevicesScreen = () => {
   const [bleManager] = useState(new BleManager());
@@ -24,8 +23,24 @@ const BleDevicesScreen = () => {
     {}
   );
   const [anchors, setAnchors] = useState<Record<string, boolean>>({});
+  const { setGlobalAnchors } = useContext(AnchorsContext);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [tempConfigs, setTempConfigs] = useState<Record<string, { rssiAtOneMeter: string; pathLossExponent: string }>>({});
+
+  const updateDistances = (device: Device | null) => {
+    if (device === null) return;
+    if (device.rssi === null) return;
+
+    // Update distances only for anchors
+    if (anchors[device.id]) {
+      const { rssiAtOneMeter, pathLossExponent } = deviceConfigs[device.id] || { rssiAtOneMeter: -65, pathLossExponent: 2 };
+      const distance = calculateDistance(device.rssi, rssiAtOneMeter, pathLossExponent);
+      setDeviceDistances((prevDistances) => ({
+        ...prevDistances,
+        [device.id]: distance,
+      }));
+    }
+  };
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -79,15 +94,7 @@ const BleDevicesScreen = () => {
             return prevConfigs;
           });
 
-          // Update distances only for anchors
-          if (anchors[device.id]) {
-            const { rssiAtOneMeter, pathLossExponent } = deviceConfigs[device.id] || { rssiAtOneMeter: -65, pathLossExponent: 2 };
-            const distance = calculateDistance(device.rssi, rssiAtOneMeter, pathLossExponent);
-            setDeviceDistances((prevDistances) => ({
-              ...prevDistances,
-              [device.id]: distance,
-            }));
-          }
+          updateDistances(device);
         }
       });
     };
@@ -97,7 +104,7 @@ const BleDevicesScreen = () => {
     return () => {
       bleManager.stopDeviceScan();
     };
-  }, [bleManager, deviceConfigs, anchors]);
+  }, []);
 
   const calculateDistance = (rssi: number, rssiAtOneMeter: number, pathLossExponent: number): number => {
     if (rssi === 0) {
@@ -135,21 +142,21 @@ const BleDevicesScreen = () => {
   const toggleAnchor = (deviceId: string, value: boolean) => {
     const device = devices.find((d) => d.id === deviceId); // Find the device object
     if (!device) return;
-  
+
     setAnchors((prevAnchors) => ({
       ...prevAnchors,
       [deviceId]: value,
     }));
-  
+
     const distance = deviceDistances[deviceId]; // Retrieve calculated distance
-  
+
     setGlobalAnchors((prevGlobalAnchors) => {
       const updatedAnchors = { ...prevGlobalAnchors };
       if (value) {
-        updatedAnchors[deviceId] = { 
-          id: deviceId, 
-          name: device.name || 'Unknown Device', 
-          coordinates: null, 
+        updatedAnchors[deviceId] = {
+          id: deviceId,
+          name: device.name || 'Unknown Device',
+          coordinates: null,
           distance // Include distance here
         };
       } else {

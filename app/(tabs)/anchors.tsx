@@ -11,6 +11,9 @@ export default function AnchorsScreen() {
   };
 
   const updateCoordinates = (anchorId: string, x: string, y: string) => {
+    if (x === '') x = '0';
+    if (y === '') y = '0';
+
     setGlobalAnchors((prevAnchors) => ({
       ...prevAnchors,
       [anchorId]: {
@@ -73,5 +76,5 @@ const styles = StyleSheet.create({
   coordinates: { fontSize: 14, color: '#666' },
   coordinateInputContainer: { flexDirection: 'row', marginTop: 8 },
   input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 8, marginHorizontal: 4 },
-  listContainer: {paddingVertical: 10,},
+  listContainer: { paddingVertical: 10, },
 });
