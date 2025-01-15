@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,38 +11,27 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { BleManager, Device } from 'react-native-ble-plx';
+import { BleError, BleManager, Device } from 'react-native-ble-plx';
 import { AnchorsContext } from '@/components/AnchorsContext';
 
 
 const BleDevicesScreen = () => {
   const [bleManager] = useState(new BleManager());
+  const { globalAnchors, setGlobalAnchors } = useContext(AnchorsContext);
+
   const [devices, setDevices] = useState<Device[]>([]);
-  const [deviceDistances, setDeviceDistances] = useState<Record<string, number>>({});
-  const [deviceConfigs, setDeviceConfigs] = useState<Record<string, { rssiAtOneMeter: number; pathLossExponent: number }>>(
-    {}
-  );
-  const [anchors, setAnchors] = useState<Record<string, boolean>>({});
-  const { setGlobalAnchors } = useContext(AnchorsContext);
-  const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
-  const [tempConfigs, setTempConfigs] = useState<Record<string, { rssiAtOneMeter: string; pathLossExponent: string }>>({});
+  const [areAnchors, setAreAnchors] = useState<Record<string, boolean>>({});
 
-  const updateDistances = (device: Device | null) => {
-    if (device === null) return;
-    if (device.rssi === null) return;
-
-    // Update distances only for anchors
-    if (anchors[device.id]) {
-      const { rssiAtOneMeter, pathLossExponent } = deviceConfigs[device.id] || { rssiAtOneMeter: -65, pathLossExponent: 2 };
-      const distance = calculateDistance(device.rssi, rssiAtOneMeter, pathLossExponent);
-      setDeviceDistances((prevDistances) => ({
-        ...prevDistances,
-        [device.id]: distance,
-      }));
-    }
-  };
+  const { rssiAtOneMeter, pathLossExponent } = { rssiAtOneMeter: -65, pathLossExponent: 2 };
 
   useEffect(() => {
+    const updateDistance = (device: Device) => {
+      if (device.rssi === null) return;
+
+      const distance = calculateDistance(device.rssi, rssiAtOneMeter, pathLossExponent);
+      setGlobalAnchors((prevAnchors) => ({ ...prevAnchors, [device.id]: { ...prevAnchors[device.id], distance } }));
+    }
+
     const requestPermissions = async () => {
       if (Platform.OS === 'android') {
         const granted = await PermissionsAndroid.requestMultiple([
@@ -65,46 +54,38 @@ const BleDevicesScreen = () => {
       return true;
     };
 
+    const scanListener = (error: BleError | null, device: Device | null) => {
+      if (error) {
+        console.error('Scan error:', error);
+        return;
+      }
+
+      if (!(device && device.name && device.rssi))
+        return;
+
+      setDevices((prevDevices) => {
+        if (prevDevices.find((d) => d.id === device.id)) {
+          return prevDevices;
+        }
+        return [...prevDevices, device];
+      });
+
+      if (areAnchors[device.id])
+        updateDistance(device);
+    }
+
     const initializeScan = async () => {
       const hasPermissions = await requestPermissions();
       if (!hasPermissions) return;
 
-      bleManager.startDeviceScan(null, null, (error, device) => {
-        if (error) {
-          console.error('Scan error:', error);
-          return;
-        }
-
-        if (device && device.name && device.rssi !== null) {
-          setDevices((prevDevices) => {
-            if (prevDevices.find((d) => d.id === device.id)) {
-              return prevDevices;
-            }
-            return [...prevDevices, device];
-          });
-
-          // Initialize configs for new devices
-          setDeviceConfigs((prevConfigs) => {
-            if (!prevConfigs[device.id]) {
-              return {
-                ...prevConfigs,
-                [device.id]: { rssiAtOneMeter: -65, pathLossExponent: 2 },
-              };
-            }
-            return prevConfigs;
-          });
-
-          updateDistances(device);
-        }
-      });
+      bleManager.startDeviceScan(null, null, scanListener);
     };
-
     initializeScan();
 
     return () => {
       bleManager.stopDeviceScan();
     };
-  }, []);
+  }, [areAnchors]);
 
   const calculateDistance = (rssi: number, rssiAtOneMeter: number, pathLossExponent: number): number => {
     if (rssi === 0) {
@@ -115,49 +96,23 @@ const BleDevicesScreen = () => {
     return Math.pow(10, ratio);
   };
 
-  const toggleDeviceExpansion = (deviceId: string) => {
-    if (expandedDevice === deviceId) {
-      if (tempConfigs[deviceId]) {
-        setDeviceConfigs((prevConfigs) => ({
-          ...prevConfigs,
-          [deviceId]: {
-            rssiAtOneMeter: parseFloat(tempConfigs[deviceId].rssiAtOneMeter) || prevConfigs[deviceId].rssiAtOneMeter,
-            pathLossExponent: parseFloat(tempConfigs[deviceId].pathLossExponent) || prevConfigs[deviceId].pathLossExponent,
-          },
-        }));
-      }
-      setExpandedDevice(null);
-    } else {
-      setTempConfigs((prevTempConfigs) => ({
-        ...prevTempConfigs,
-        [deviceId]: {
-          rssiAtOneMeter: deviceConfigs[deviceId]?.rssiAtOneMeter.toString() || '-65',
-          pathLossExponent: deviceConfigs[deviceId]?.pathLossExponent.toString() || '2',
-        },
-      }));
-      setExpandedDevice(deviceId);
-    }
-  };
-
-  const toggleAnchor = (deviceId: string, value: boolean) => {
-    const device = devices.find((d) => d.id === deviceId); // Find the device object
+  const toggleAnchor = (deviceId: string, isAnchor: boolean) => {
+    const device = devices.find((d) => d.id === deviceId);
     if (!device) return;
 
-    setAnchors((prevAnchors) => ({
+    setAreAnchors((prevAnchors) => ({
       ...prevAnchors,
-      [deviceId]: value,
+      [deviceId]: isAnchor,
     }));
-
-    const distance = deviceDistances[deviceId]; // Retrieve calculated distance
 
     setGlobalAnchors((prevGlobalAnchors) => {
       const updatedAnchors = { ...prevGlobalAnchors };
-      if (value) {
+      if (isAnchor) {
         updatedAnchors[deviceId] = {
           id: deviceId,
           name: device.name || 'Unknown Device',
           coordinates: null,
-          distance // Include distance here
+          distance: null
         };
       } else {
         delete updatedAnchors[deviceId];
@@ -167,41 +122,20 @@ const BleDevicesScreen = () => {
   };
 
   const renderDevice = ({ item }: { item: Device }) => {
-    const distance = deviceDistances[item.id];
-    const isExpanded = expandedDevice === item.id;
-    const tempConfig = tempConfigs[item.id] || { rssiAtOneMeter: '-65', pathLossExponent: '2' };
-    const isAnchor = anchors[item.id] || false;
+    const distance = globalAnchors[item.id]?.distance;
+    const isAnchor = areAnchors[item.id] || false;
 
     return (
-      <TouchableOpacity style={styles.deviceItem} onPress={() => toggleDeviceExpansion(item.id)}>
+      <TouchableOpacity style={styles.deviceItem} onPress={() => { }}>
         <Text style={styles.deviceName}>{item.name || 'Unknown Device'}</Text>
         <Text style={styles.deviceId}>{item.id}</Text>
         {isAnchor && (
           <Text style={styles.distance}>
-            Distance: {distance !== undefined ? `${distance.toFixed(2)} meters` : 'Calculating...'}
+            Distance: {distance ? `${distance.toFixed(2)} meters` : 'Calculating...'}
           </Text>
         )}
-        {isExpanded && (
+        {(
           <View style={styles.configContainer}>
-            <Text style={styles.configLabel}>RSSI at 1 Meter:</Text>
-            <View style={styles.row}>
-              <TextInput
-                style={styles.configInput}
-                keyboardType="numeric"
-                value={tempConfig.rssiAtOneMeter}
-                onChangeText={(text) => handleTempConfigChange(item.id, 'rssiAtOneMeter', text)}
-              />
-              <TouchableOpacity style={styles.autoButton} onPress={() => autoSetRSSIAtOneMeter(item.id)}>
-                <Text style={styles.autoButtonText}>AUTO</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.configLabel}>Path Loss Exponent:</Text>
-            <TextInput
-              style={styles.configInput}
-              keyboardType="numeric"
-              value={tempConfig.pathLossExponent}
-              onChangeText={(text) => handleTempConfigChange(item.id, 'pathLossExponent', text)}
-            />
             <View style={styles.row}>
               <Text style={styles.configLabel}>Set as Anchor:</Text>
               <Switch value={isAnchor} onValueChange={(value) => toggleAnchor(item.id, value)} />
@@ -210,31 +144,6 @@ const BleDevicesScreen = () => {
         )}
       </TouchableOpacity>
     );
-  };
-
-  const handleTempConfigChange = (deviceId: string, field: 'rssiAtOneMeter' | 'pathLossExponent', value: string) => {
-    setTempConfigs((prevTempConfigs) => ({
-      ...prevTempConfigs,
-      [deviceId]: {
-        ...prevTempConfigs[deviceId],
-        [field]: value,
-      },
-    }));
-  };
-
-  const autoSetRSSIAtOneMeter = (deviceId: string) => {
-    const device = devices.find((d) => d.id === deviceId);
-    if (device && device.rssi !== null) {
-      setTempConfigs((prevTempConfigs) => ({
-        ...prevTempConfigs,
-        [deviceId]: {
-          ...prevTempConfigs[deviceId],
-          rssiAtOneMeter: String(device.rssi),
-        },
-      }));
-    } else {
-      Alert.alert('Error', 'RSSI data is not available for this device.');
-    }
   };
 
   return (

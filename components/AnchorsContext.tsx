@@ -1,34 +1,31 @@
 import React, { createContext, useState, ReactNode } from 'react';
 
+type Anchor = {
+  id: string;
+  name: string;
+  coordinates: { x: number; y: number } | null;
+  distance: number | null; // Add distance here
+}
+
 export const AnchorsContext = createContext<{
-  anchors: Record<string, { 
-    id: string; 
-    name: string; 
-    coordinates: { x: number; y: number } | null; 
-    distance?: number; // Add distance here
-  }>;
+  globalAnchors: Record<string, Anchor>;
   setGlobalAnchors: React.Dispatch<
     React.SetStateAction<
-      Record<string, { 
-        id: string; 
-        name: string; 
-        coordinates: { x: number; y: number } | null; 
-        distance?: number; 
-      }>
+      Record<string, Anchor>
     >
   >;
 }>({
-  anchors: {},
-  setGlobalAnchors: () => {},
+  globalAnchors: {},
+  setGlobalAnchors: () => { },
 });
 
 export const AnchorsProvider = ({ children }: { children: ReactNode }) => {
-  const [anchors, setGlobalAnchors] = useState<
-    Record<string, { id: string; name: string; coordinates: { x: number; y: number } | null }>
+  const [globalAnchors, setGlobalAnchors] = useState<
+    Record<string, Anchor>
   >({});
 
   return (
-    <AnchorsContext.Provider value={{ anchors, setGlobalAnchors }}>
+    <AnchorsContext.Provider value={{ globalAnchors, setGlobalAnchors }}>
       {children}
     </AnchorsContext.Provider>
   );

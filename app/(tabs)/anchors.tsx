@@ -3,7 +3,7 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'r
 import { AnchorsContext } from '@/components/AnchorsContext';
 
 export default function AnchorsScreen() {
-  const { anchors, setGlobalAnchors } = useContext(AnchorsContext); // Access shared anchors
+  const { globalAnchors, setGlobalAnchors } = useContext(AnchorsContext); // Access shared anchors
   const [expandedAnchor, setExpandedAnchor] = useState<string | null>(null);
 
   const toggleAnchorExpansion = (anchorId: string) => {
@@ -58,7 +58,7 @@ export default function AnchorsScreen() {
     <View style={styles.container}>
       <Text style={styles.header}>Anchors</Text>
       <FlatList
-        data={Object.values(anchors)}
+        data={Object.values(globalAnchors)}
         keyExtractor={(item) => item.id}
         renderItem={renderAnchor}
         contentContainerStyle={styles.listContainer}
